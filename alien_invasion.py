@@ -93,9 +93,9 @@ class AlienInvasion:
 
     def _check_keydown_events(self, event):
         """Respond to keypresses."""
-        if event.key == pygame.K_RIGHT:
+        if event.key == pygame.K_RIGHT or event.key == pygame.K_d:
             self.ship.moving_right = True
-        elif event.key == pygame.K_LEFT:
+        elif event.key == pygame.K_LEFT or event.key == pygame.K_a:
             self.ship.moving_left = True
         elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
             sys.exit()
@@ -104,9 +104,9 @@ class AlienInvasion:
 
     def _check_keyup_events(self, event):
         """Respond to key releases."""
-        if event.key == pygame.K_RIGHT:
+        if event.key == pygame.K_RIGHT or event.key == pygame.K_d:
             self.ship.moving_right = False
-        elif event.key == pygame.K_LEFT:
+        elif event.key == pygame.K_LEFT or event.key == pygame.K_a:
             self.ship.moving_left = False
 
     def _fire_bullet(self):
@@ -130,8 +130,7 @@ class AlienInvasion:
     def _check_bullet_alien_collisions(self):
         """Respond to bullet-alien collisions."""
         # Remove any bullets and aliens that have collided.
-        collisions = pygame.sprite.groupcollide(
-                self.bullets, self.aliens, True, True)
+        collisions = pygame.sprite.groupcollide(self.bullets, self.aliens, True, True)
 
         if collisions:
             for aliens in collisions.values():
@@ -149,6 +148,16 @@ class AlienInvasion:
             # Increase level.
             self.stats.level += 1
             self.sb.prep_level()
+
+        # Get a list of collisions between all bunkers and bullets
+        # Don't kill bullets, as we need the coordinates for bunker pixel destruction
+        collisions = pygame.sprite.groupcollide(self.bunkers, self.bullets, False, False)
+
+        if collisions:
+            for bunker in collisions:
+                for bullet in collisions[bunker]:
+                    if bunker.validhit(bullet):
+                        bullet.kill()
 
     def _update_aliens(self):
         """
@@ -244,7 +253,7 @@ class AlienInvasion:
         bunker_width, bunker_height = bunker.rect.size
         bunker.x = (bunker_width // 2) + 2 * bunker_width * bunker_number
         bunker.rect.x = bunker.x
-        bunker.rect.y = int(self.settings.screen_height * 0.75)
+        bunker.rect.y = int(self.settings.screen_height * 0.80)
         self.bunkers.add(bunker)
 
     def _check_fleet_edges(self):

@@ -15,6 +15,7 @@ class ConvertImage:
     def topil(image):
         strformat = "RGBA"
         raw_str = pygame.image.tostring(image, strformat, False)
+
         return Image.frombytes(strformat, image.get_size(), raw_str)
 
     @staticmethod
