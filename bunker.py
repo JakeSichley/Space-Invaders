@@ -58,7 +58,10 @@ class Bunker(Sprite):
         for x in range(image.size[0]):
             for y in range(image.size[1]):
                 # Calculate if a point is inside (or on) the circle
-                if (x - offset[0])**2 + (y - offset[1])**2 <= radius**2:
+                xdiff = x - offset[0]
+                ydiff = y - offset[1]
+                # Slightly increased performace over using ** operator; suttering for computations is less pronounced
+                if xdiff * xdiff + ydiff * ydiff <= radius * radius:
                     coordinates.append((x, y))
 
         return coordinates

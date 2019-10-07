@@ -13,6 +13,9 @@ class Settings:
         self.screenbackground = pygame.image.load('images/background.png')
         self.screenbackgroundrect = self.screenbackground.get_rect()
 
+        # Game settings
+        self.maxscores = 10
+
         # Ship settings
         self.ship_limit = 3
 

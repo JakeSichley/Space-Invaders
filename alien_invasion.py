@@ -9,6 +9,7 @@ from scoreboard import Scoreboard
 from settings import Settings
 from ship import Ship
 from bunker import Bunker
+from soundmanager import SoundManager
 
 
 class AlienInvasion:
@@ -37,11 +38,15 @@ class AlienInvasion:
         self._create_fleet()
         self._create_bunker_wall()
 
+        self._soundmananger = SoundManager()
+
         # Make the Play button.
-        self.play_button = Button(self, "Play")
+        self.play_button = Button(self, "Play", (0, -50))
+        self.score_button = Button(self, "High Scores", (0, 50))
 
     def run_game(self):
         """Start the main loop for the game."""
+        # Game stats == false is here
         while True:
             self._check_events()
 
@@ -69,6 +74,7 @@ class AlienInvasion:
         """Start a new game when the player clicks Play."""
         button_clicked = self.play_button.rect.collidepoint(mouse_pos)
         if button_clicked and not self.stats.game_active:
+            print('Called Game Start Function')
             # Reset the game settings.
             self.settings.initialize_dynamic_settings()
 
@@ -91,6 +97,9 @@ class AlienInvasion:
             # Hide the mouse cursor.
             pygame.mouse.set_visible(False)
 
+            # Start background music
+            self._soundmananger.getinstance().startgame()
+
     def _check_keydown_events(self, event):
         """Respond to keypresses."""
         if event.key == pygame.K_RIGHT or event.key == pygame.K_d:
@@ -101,6 +110,8 @@ class AlienInvasion:
             sys.exit()
         elif event.key == pygame.K_SPACE:
             self._fire_bullet()
+        elif event.key == pygame.K_p:
+            self._ship_hit()
 
     def _check_keyup_events(self, event):
         """Respond to key releases."""
@@ -285,8 +296,11 @@ class AlienInvasion:
         self.sb.show_score()
 
         # Draw the play button if the game is inactive.
+        # Control goes here after a game ends2
         if not self.stats.game_active:
+            self.stats.writehighscores()
             self.play_button.draw_button()
+            self.score_button.draw_button()
 
         pygame.display.flip()
 
