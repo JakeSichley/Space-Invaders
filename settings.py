@@ -43,6 +43,7 @@ class Settings:
         self.alien_speed = 1
         self.fleet_direction = 1
         self.alien_points = 50
+        self.max_aliens = 90
 
         self.initialize_dynamic_settings()
 
