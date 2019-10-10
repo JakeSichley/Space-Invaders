@@ -1,4 +1,5 @@
 import sys
+import random
 from time import sleep
 import pygame
 from alien import Alien
@@ -11,6 +12,7 @@ from ship import Ship
 from bunker import Bunker
 from soundmanager import SoundManager
 from alienexplosion import AlienExplosion
+from alienbullet import AlienBullet
 
 
 class AlienInvasion:
@@ -36,6 +38,7 @@ class AlienInvasion:
         self.aliens = pygame.sprite.Group()
         self.explosions = pygame.sprite.Group()
         self.bunkers = pygame.sprite.Group()
+        self.alienbullets = pygame.sprite.Group()
 
         self._create_fleet()
         self._create_bunker_wall()
@@ -44,8 +47,10 @@ class AlienInvasion:
 
         self._update_frame_event = pygame.USEREVENT + 1
         self._update_explosion_frame_event = pygame.USEREVENT + 2
+        self._alien_shoot_event = pygame.USEREVENT + 3
         pygame.time.set_timer(self._update_frame_event, 1000)
         pygame.time.set_timer(self._update_explosion_frame_event, 200)
+        pygame.time.set_timer(self._alien_shoot_event, 100)
 
         # Make the Play button.
         self.play_button = Button(self, "Play", (0, -50))
@@ -80,6 +85,8 @@ class AlienInvasion:
                 self._update_frames()
             elif event.type == self._update_explosion_frame_event:
                 self._update_explosion_frames()
+            elif event.type == self._alien_shoot_event:
+                self._alien_shoot()
 
     # Game start function
     def _check_play_button(self, mouse_pos):
@@ -137,17 +144,33 @@ class AlienInvasion:
             new_bullet = Bullet(self)
             self.bullets.add(new_bullet)
 
+    def _alien_shoot(self):
+        for alien in self.aliens:
+            #if random.randint(0, 6) == 5:
+            self._alien_fire_bullet(alien)
+
+    def _alien_fire_bullet(self, alien):
+        new_bullet = AlienBullet(self, alien)
+        self.alienbullets.add(new_bullet)
+
     def _update_bullets(self):
         """Update position of bullets and get rid of old bullets."""
         # Update bullet positions.
         self.bullets.update()
+        # Update alien bullet positions
+        self.alienbullets.update()
 
         # Get rid of bullets that have disappeared.
         for bullet in self.bullets.copy():
             if bullet.rect.bottom <= 0:
                 self.bullets.remove(bullet)
 
+        for bullet in self.alienbullets.copy():
+            if bullet.rect.bottom >= self.settings.screen_height:
+                self.bullets.remove(bullet)
+
         self._check_bullet_alien_collisions()
+        self._check_alienbullet_collisions()
 
     def _check_bullet_alien_collisions(self):
         """Respond to bullet-alien collisions."""
@@ -187,6 +210,15 @@ class AlienInvasion:
             for bunker in collisions:
                 for bullet in collisions[bunker]:
                     if bunker.validhit(bullet):
+                        bullet.kill()
+
+    def _check_alienbullet_collisions(self):
+        collisions = pygame.sprite.groupcollide(self.bunkers, self.alienbullets, False, False)
+
+        if collisions:
+            for bunker in collisions:
+                for bullet in collisions[bunker]:
+                    if bunker.validhit(bullet, True):
                         bullet.kill()
 
     def _update_aliens(self):
@@ -271,7 +303,7 @@ class AlienInvasion:
         # Available rows
         available_space_y = (self.settings.screen_height - (5 * alien_height) - ship_height)
         #number_rows = available_space_y // (2 * alien_height)
-        number_rows = 6
+        number_rows = 4
 
         alienimages = [
             ['images/alien1frame1.png', 'images/alien1frame2.png'],
@@ -348,6 +380,10 @@ class AlienInvasion:
         self.ship.blitme()
         for bullet in self.bullets.sprites():
             bullet.draw_bullet()
+
+        for bullet in self.alienbullets.sprites():
+            bullet.draw_bullet()
+
         # Draw the aliens
         self.aliens.draw(self.screen)
         # Draw the bunkers
