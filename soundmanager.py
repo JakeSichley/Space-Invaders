@@ -41,6 +41,7 @@ class SoundManager:
         return self.__musicplaying
 
     def newlevel(self):
+        # Implement logic to offset base music to feel less 'jumpy'?
         self.musicindex = 0
         pygame.mixer.music.load(self.__backgroundmusicfiles[self.musicindex])
         pygame.mixer.music.play(-1, 0.0)
@@ -75,7 +76,7 @@ class SoundManager:
             self.musicindex = 0
 
         # Offset duration to be a position relevant to the next speed
-        self.__currentduration %= self.__basemusicduration * self.backgroundmusicspeeds[self.musicindex]
+        self.__currentduration %= self.__basemusicduration / self.backgroundmusicspeeds[self.musicindex]
         pygame.mixer.music.load(self.__backgroundmusicfiles[self.musicindex])
         pygame.mixer.music.play(-1, 0.0)
         pygame.mixer.music.set_pos(self.__currentduration)

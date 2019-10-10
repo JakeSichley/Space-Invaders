@@ -5,7 +5,7 @@ from pygame.sprite import Sprite
 class Alien(Sprite):
     """A class to represent a single alien in the fleet."""
 
-    def __init__(self, ai_game, images):
+    def __init__(self, ai_game, images, offset=0):
         """Initialize the alien and set its starting position."""
         super().__init__()
         self.screen = ai_game.screen
@@ -13,10 +13,8 @@ class Alien(Sprite):
 
         # Load the alien image and set its rect attribute.
         self.images = images
-        self.imageindex = 0
+        self.imageindex = offset
         self.image = pygame.image.load(self.images[self.imageindex])
-        self.explosions = ['images/explosionframe1.png', 'images/explosionframe2.png',
-                           'images/explosionframe3.png', 'images/explosionframe4.png']
         self.rect = self.image.get_rect()
 
         # Start each new alien near the top left of the screen.

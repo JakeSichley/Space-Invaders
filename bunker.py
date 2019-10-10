@@ -25,15 +25,18 @@ class Bunker(Sprite):
         self.x = float(self.rect.x)
 
     """When a collision occurs, check to see if see if pixels are valid (Alpha != 0)"""
-    def validhit(self, bullet, alternatecoordinates=False):
+    def validhit(self, bullet, alienbullet=False):
         image = ConvertImage.topil(self.image)
 
-        # back to clip
-        # compute top left offset then use width + height
+        # Crop the bullet inside the bunker to ensure coordinates are valid
+        # Save the original rect to restore if there is not a collision
         originalrect = bullet.rect
         bullet.rect = bullet.rect.clip(self.rect)
 
-        if alternatecoordinates:
+        # Different coordinate offsets must be used depending on the bullet type
+        # By default, game assumes that the bullet is a player bullet
+        # [Player's bullet travels up, Alien's bullet travels down]
+        if alienbullet:
             offset = tuple((bullet.rect.bottomleft[0] - self.rect.topleft[0],
                             bullet.rect.bottomleft[1] - self.rect.topleft[1]))
             y = offset[1] - bullet.rect.height
@@ -44,25 +47,22 @@ class Bunker(Sprite):
             y = offset[1]
             y2 = offset[1] + bullet.rect.height
 
-        print(offset)
-
+        # Check the alpha of each of the coordinates in the bullet's rect area
         for x in range(offset[0], offset[0] + bullet.rect.width):
             for y in range(y, y2):
                 pixel = image.getpixel((x, y))
                 if pixel[3] != 0:
+                    # If there is a collision, stop checking pixels, call collision functions, and return True
                     self.__hit(offset, self.settings.explosionradius)
                     return True
 
+        # If there is not a collision, restore the bullet's rect and return False
         bullet.rect = originalrect
         return False
 
-    """When a bunker is hit, destroy pixels in radius. This method supplies a valid list of coordinates for a radius"""
+    """When a bunker is hit, destroy pixels in radius. This method returns a valid list of coordinates for a radius"""
     def __getradiuscoordinates(self, offset, radius):
         image = ConvertImage.topil(self.image)
-        # Compute offset of rectangle to use in localized image coordinates
-        #offset = tuple((bullet.rect.topleft[0] - self.rect.topleft[0],
-                        #bullet.rect.topleft[1] - self.rect.topleft[1]))
-
         coordinates = []
 
         for x in range(image.size[0]):

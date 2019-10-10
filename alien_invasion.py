@@ -45,12 +45,18 @@ class AlienInvasion:
 
         self._soundmananger = SoundManager()
 
+        # Define USERVENTS here
+        """DEFINITION OF EVENTS:
+        a) '_update_frame_event': EVENTID=25, how often alien animations should be updated
+        b) '_update_explosion_frame_event': EVENTID=26, how often explosion animations should be updated
+        c) '_alien_shoot_event': EVENTID=27, how often the aliens have an opportunity to shoot
+        """
         self._update_frame_event = pygame.USEREVENT + 1
         self._update_explosion_frame_event = pygame.USEREVENT + 2
         self._alien_shoot_event = pygame.USEREVENT + 3
         pygame.time.set_timer(self._update_frame_event, 1000)
         pygame.time.set_timer(self._update_explosion_frame_event, 200)
-        pygame.time.set_timer(self._alien_shoot_event, 100)
+        pygame.time.set_timer(self._alien_shoot_event, self.settings.current_fire_interval)
 
         # Make the Play button.
         self.play_button = Button(self, "Play", (0, -50))
@@ -112,6 +118,9 @@ class AlienInvasion:
             self._create_bunker_wall()
             self.ship.center_ship()
 
+            # Update events
+            pygame.time.set_timer(self._alien_shoot_event, self.settings.current_fire_interval)
+
             # Hide the mouse cursor.
             pygame.mouse.set_visible(False)
 
@@ -129,7 +138,8 @@ class AlienInvasion:
         elif event.key == pygame.K_SPACE:
             self._fire_bullet()
         elif event.key == pygame.K_p:
-            SoundManager.threadedfunction(self._soundmananger.getinstance().increasemusicspeed)
+            self.stats.level += 1
+            self.aliens.empty()
 
     def _check_keyup_events(self, event):
         """Respond to key releases."""
@@ -146,8 +156,8 @@ class AlienInvasion:
 
     def _alien_shoot(self):
         for alien in self.aliens:
-            #if random.randint(0, 6) == 5:
-            self._alien_fire_bullet(alien)
+            if random.randint(0, self.settings.current_fire_chance) == self.settings.fire_chance_key:
+                self._alien_fire_bullet(alien)
 
     def _alien_fire_bullet(self, alien):
         new_bullet = AlienBullet(self, alien)
@@ -193,13 +203,18 @@ class AlienInvasion:
             # New level created here
             # Destroy existing bullets and create new fleet.
             self.bullets.empty()
+            self.bunkers.empty()
+            self.alienbullets.empty()
+            # Create new objects
             self._create_fleet()
             self._create_bunker_wall()
-            self.settings.increase_speed()
+            # Adjust stats & increase level
+            self.stats.level += 1
+            self.settings.increase_speed(self.stats.level)
+            pygame.time.set_timer(self._alien_shoot_event, self.settings.current_fire_interval)
+
             self._soundmananger.getinstance().newlevel()
 
-            # Increase level.
-            self.stats.level += 1
             self.sb.prep_level()
 
         # Get a list of collisions between all bunkers and bullets
@@ -213,6 +228,12 @@ class AlienInvasion:
                         bullet.kill()
 
     def _check_alienbullet_collisions(self):
+        """Check to see if ship was hit by a bullet"""
+        collisions = pygame.sprite.spritecollide(self.ship, self.alienbullets, False)
+
+        if collisions:
+            self._ship_hit()
+
         collisions = pygame.sprite.groupcollide(self.bunkers, self.alienbullets, False, False)
 
         if collisions:
@@ -267,6 +288,16 @@ class AlienInvasion:
                 self._ship_hit()
                 break
 
+        """Also check for bunker collisions"""
+        collisions = pygame.sprite.groupcollide(self.bunkers, self.aliens, False, False)
+
+        if collisions:
+            for bunker in collisions:
+                for alien in collisions[bunker]:
+                    alien.kill()
+                    bunker.kill()
+                    break
+
     def _ship_hit(self):
         """Respond to the ship being hit by an alien."""
         if self.stats.ships_left > 0:
@@ -274,14 +305,17 @@ class AlienInvasion:
             self.stats.ships_left -= 1
             self.sb.prep_ships()
             
-            # Get rid of any remaining aliens and bullets.
+            # Get rid of any remaining aliens, bunkers, and all bullets
             self.aliens.empty()
             self.bullets.empty()
+            self.bunkers.empty()
+            self.alienbullets.empty()
             
             # Create a new fleet and center the ship.
             self._create_fleet()
             self._create_bunker_wall()
             self.ship.center_ship()
+            self._soundmananger.getinstance().newlevel()
             
             # Pause.
             sleep(0.5)
@@ -299,11 +333,11 @@ class AlienInvasion:
         number_aliens_x = available_space_x // (2 * alien_width)
         
         # Determine the number of rows of aliens that fit on the screen.
-        ship_height = self.ship.rect.height
+        # ship_height = self.ship.rect.height
         # Available rows
-        available_space_y = (self.settings.screen_height - (5 * alien_height) - ship_height)
-        #number_rows = available_space_y // (2 * alien_height)
-        number_rows = 4
+        # available_space_y = (self.settings.screen_height - (5 * alien_height) - ship_height)
+        # number_rows = available_space_y // (2 * alien_height)
+        number_rows = self.settings.number_of_rows
 
         alienimages = [
             ['images/alien1frame1.png', 'images/alien1frame2.png'],
@@ -318,18 +352,17 @@ class AlienInvasion:
             if row_number % 2 == 0 and row_number is not 0:
                 alienimageindex += 1
             for alien_number in range(number_aliens_x):
-                self._create_alien(alien_number, row_number, alienimages[alienimageindex])
+                self._create_alien(alien_number, row_number, alienimages[alienimageindex], alien_number % 2)
 
         self.settings.max_aliens = len(self.aliens)
 
-    # Pass in images to this function
-    def _create_alien(self, alien_number, row_number, images):
+    def _create_alien(self, alien_number, row_number, images, offset):
         """Create an alien and place it in the row."""
-        alien = Alien(self, images)
+        alien = Alien(self, images, offset)
         alien_width, alien_height = alien.rect.size
         alien.x = alien_width + 2 * alien_width * alien_number
         alien.rect.x = alien.x
-        alien.rect.y = alien.rect.height + 2 * alien.rect.height * row_number
+        alien.rect.y = alien.rect.height + 1.25 * alien.rect.height * row_number
         self.aliens.add(alien)
 
     def _create_bunker_wall(self):
@@ -368,9 +401,9 @@ class AlienInvasion:
 
     def _change_fleet_direction(self):
         """Drop the entire fleet and change the fleet's direction."""
-        # Space update: fleet no longer drops down
-        # for alien in self.aliens.sprites():
-        #    alien.rect.y += self.settings.fleet_drop_speed
+        # They do drop down
+        for alien in self.aliens.sprites():
+            alien.rect.y += self.settings.fleet_drop_speed
         self.settings.fleet_direction *= -1
 
     def _update_screen(self):
