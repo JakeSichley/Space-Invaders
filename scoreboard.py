@@ -86,3 +86,48 @@ class Scoreboard:
         self.screen.blit(self.high_score_image, self.high_score_rect)
         self.screen.blit(self.level_image, self.level_rect)
         self.ships.draw(self.screen)
+
+    def show_main_menu(self):
+        # "Space"
+        font = pygame.font.SysFont(None, 150)
+        title = font.render("SPACE", True, (51, 255, 51), (0, 0, 0))
+        # Center the title at the top of the screen.
+        title_rect = title.get_rect()
+        title_rect.centerx = self.screen_rect.centerx
+        title_rect.top = 100
+        self.screen.blit(title, title_rect)
+        # "Invaders"
+        title2 = font.render("Invaders", True, (255, 255, 255), (0, 0, 0))
+        # Center the title at the top of the screen.
+        title2_rect = title2.get_rect()
+        title2_rect.centerx = self.screen_rect.centerx
+        title2_rect.top = title_rect.bottom
+        self.screen.blit(title2, title2_rect)
+        # Aliens and Points
+        alien_data = [
+            ['images/alien3frame1.png', ' = 10 PTS'],
+            ['images/alien2frame1.png', ' = 20 PTS'],
+            ['images/alien1frame1.png', ' = 40 PTS'],
+            ['images/ufo.png', ' = ??? PTS']
+        ]
+
+        height = title2_rect.bottom + 75
+        font = pygame.font.SysFont(None, 65)
+
+        for data in alien_data:
+            text = font.render(data[1], True, (255, 255, 255), (0, 0, 0))
+            # Center the title at the top of the screen.
+            image = pygame.image.load(data[0])
+            image_rect = image.get_rect()
+            text_rect = text.get_rect()
+            total_x = image_rect.width + text_rect.width
+            offset_x = int(total_x / 2) - image_rect.width
+            text_rect.x = self.screen_rect.centerx - offset_x
+            text_rect.top = height
+            image_rect.x = self.screen_rect.centerx - (offset_x * 2)
+            image_rect.top = height
+            height += 90
+            self.screen.blit(image, image_rect)
+            self.screen.blit(text, text_rect)
+
+        return height

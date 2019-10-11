@@ -14,6 +14,25 @@ class Ship(Sprite):
 
         # Load the ship image and get its rect.
         self.image = pygame.image.load('images/ship.png')
+        self.explosion_frames = [
+            'images/shipexplosionframe1.png',
+            'images/shipexplosionframe2.png',
+            'images/shipexplosionframe3.png',
+            'images/shipexplosionframe4.png',
+            'images/shipexplosionframe5.png',
+            'images/shipexplosionframe6.png',
+            'images/shipexplosionframe21.png',
+            'images/shipexplosionframe22.png',
+            'images/shipexplosionframe23.png',
+            'images/shipexplosionframe24.png',
+            'images/shipexplosionframe25.png'
+            # 'images/shipexplosionframe7.png',
+            # 'images/shipexplosionframe8.png',
+            # 'images/shipexplosionframe9.png',
+            # 'images/shipexplosionframe10.png',
+            # 'images/shipexplosionframe11.png',
+            # 'images/shipexplosionframe12.png'
+        ]
         self.rect = self.image.get_rect()
 
         # Start each new ship at the bottom center of the screen.
@@ -45,3 +64,9 @@ class Ship(Sprite):
         """Center the ship on the screen."""
         self.rect.midbottom = self.screen_rect.midbottom
         self.x = float(self.rect.x)
+
+    def setexplosionframe(self, image):
+        self.image = pygame.image.load(image)
+
+    def resetimage(self):
+        self.image = pygame.image.load('images/ship.png')
