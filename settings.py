@@ -18,13 +18,13 @@ class Settings:
         self.number_of_rows = 6
 
         # Ship settings
-        self.ship_limit = 1
+        self.ship_limit = 3
 
         # Bullet settings
         self.bullet_width = 3
         self.bullet_height = 15
         self.bullet_color = (60, 60, 60)
-        self.bullets_allowed = 9999
+        self.bullets_allowed = 4
         self.alien_bullet_color = (255, 175, 15)
 
         # Alien Bullet limits
