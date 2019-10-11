@@ -21,8 +21,9 @@ class SoundManager:
         else:
             SoundManager.__instance = self
             pygame.mixer.init(buffer=16)
-            #self.__winningmusic = pygame.mixer.Sound('Resources\\winningmusic.wav')
-            #self.__winningmusic.set_volume(0.15)
+            self.__ufosound = pygame.mixer.Sound('sounds/ufosound.wav')
+            self.__ufosound.set_volume(.10)
+            self.__ufosoundactive = False
             self.__backgroundmusicfiles = ['sounds/backgroundmusic.mp3', 'sounds/backgroundmusic110.mp3',
                                            'sounds/backgroundmusic133.mp3', 'sounds/backgroundmusic150.mp3']
             self.backgroundmusicspeeds = [1, 1.1, 1.33, 1.5]
@@ -40,6 +41,10 @@ class SoundManager:
     def getmusicplaying(self):
         return self.__musicplaying
 
+    def stopmusic(self):
+        pygame.mixer.music.stop()
+        self.__musicplaying = False
+
     def newlevel(self):
         # Implement logic to offset base music to feel less 'jumpy'?
         self.musicindex = 0
@@ -47,6 +52,9 @@ class SoundManager:
         pygame.mixer.music.play(-1, 0.0)
         pygame.mixer.music.set_volume(0.1)
         self.__currentduration = 0
+
+    def getufosoundactive(self):
+        return self.__ufosoundactive
 
     @staticmethod
     def threadedsound(function):
@@ -81,3 +89,11 @@ class SoundManager:
         pygame.mixer.music.play(-1, 0.0)
         pygame.mixer.music.set_pos(self.__currentduration)
         pygame.mixer.music.set_volume(0.1)
+
+    def playufosound(self):
+        self.__ufosound.play()
+        self.__ufosoundactive = True
+
+    def stopufosound(self):
+        self.__ufosound.stop()
+        self.__ufosoundactive = False

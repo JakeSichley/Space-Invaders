@@ -5,7 +5,7 @@ from pygame.sprite import Sprite
 class Alien(Sprite):
     """A class to represent a single alien in the fleet."""
 
-    def __init__(self, ai_game, images, offset=0):
+    def __init__(self, ai_game, images, score, offset=0):
         """Initialize the alien and set its starting position."""
         super().__init__()
         self.screen = ai_game.screen
@@ -23,6 +23,9 @@ class Alien(Sprite):
 
         # Store the alien's exact horizontal position.
         self.x = float(self.rect.x)
+
+        # Store the alien's score value
+        self.score = score
 
     def check_edges(self):
         """Return True if alien is at edge of screen."""

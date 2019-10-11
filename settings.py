@@ -18,13 +18,13 @@ class Settings:
         self.number_of_rows = 6
 
         # Ship settings
-        self.ship_limit = 3
+        self.ship_limit = 1
 
         # Bullet settings
         self.bullet_width = 3
         self.bullet_height = 15
         self.bullet_color = (60, 60, 60)
-        self.bullets_allowed = 5
+        self.bullets_allowed = 9999
         self.alien_bullet_color = (255, 175, 15)
 
         # Alien Bullet limits
@@ -43,6 +43,10 @@ class Settings:
 
         # Alien settings
         self.fleet_drop_speed = 5
+        self.score_values = [40, 20, 10]
+
+        # UFO settings
+        self.ufo_speed = 2.5
 
         # How quickly the game speeds up
         self.speedup_scale = 1.1
@@ -75,7 +79,7 @@ class Settings:
         self.fleet_direction = 1
 
         # Scoring
-        self.alien_points = 50
+        self.score_values = [40, 20, 10]
 
         # Alien firing
         self.current_fire_interval = self.default_fire_interval
@@ -107,5 +111,5 @@ class Settings:
         if self.alien_speed > self.maximum_alien_speed:
             self.alien_speed = self.maximum_alien_speed
 
-        # self.alien_points = int(self.alien_points * self.score_scale)
-        # TODO: handle inside each alien class individual
+        for index in range(len(self.score_values)):
+            self.score_values[index] = int(self.score_values[index] * self.score_scale)

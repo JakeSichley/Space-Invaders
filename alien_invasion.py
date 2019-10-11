@@ -1,7 +1,9 @@
 import sys
 import random
 from time import sleep
+import threading
 import pygame
+import pygame.font
 from alien import Alien
 from bullet import Bullet
 from button import Button
@@ -13,6 +15,7 @@ from bunker import Bunker
 from soundmanager import SoundManager
 from alienexplosion import AlienExplosion
 from alienbullet import AlienBullet
+from ufo import UFO
 
 
 class AlienInvasion:
@@ -30,37 +33,49 @@ class AlienInvasion:
 
         # Create an instance to store game statistics,
         #   and create a scoreboard.
-        self.stats = GameStats(self.settings)
+        self.stats = GameStats(self, self.settings)
         self.sb = Scoreboard(self)
 
+        # Sprites
         self.ship = Ship(self)
         self.bullets = pygame.sprite.Group()
         self.aliens = pygame.sprite.Group()
         self.explosions = pygame.sprite.Group()
         self.bunkers = pygame.sprite.Group()
         self.alienbullets = pygame.sprite.Group()
+        # UFO variables
+        self.ufo = None
+        self.display_ufo_score = False
+        self.ufo_score = None
+        self.ufo_rect = None
 
         self._create_fleet()
         self._create_bunker_wall()
 
         self._soundmananger = SoundManager()
 
-        # Define USERVENTS here
-        """DEFINITION OF EVENTS:
+        # TODO: Use wait function to display ufo value on screen
+
+        """
+        DEFINITION OF EVENTS:
         a) '_update_frame_event': EVENTID=25, how often alien animations should be updated
         b) '_update_explosion_frame_event': EVENTID=26, how often explosion animations should be updated
         c) '_alien_shoot_event': EVENTID=27, how often the aliens have an opportunity to shoot
+        d) '_ufo_summon_event': EVENTID=28, how often the ufo has an opportunity to spawn
         """
         self._update_frame_event = pygame.USEREVENT + 1
         self._update_explosion_frame_event = pygame.USEREVENT + 2
         self._alien_shoot_event = pygame.USEREVENT + 3
+        self._ufo_summon_event = pygame.USEREVENT + 4
         pygame.time.set_timer(self._update_frame_event, 1000)
         pygame.time.set_timer(self._update_explosion_frame_event, 200)
         pygame.time.set_timer(self._alien_shoot_event, self.settings.current_fire_interval)
+        pygame.time.set_timer(self._ufo_summon_event, 10000)
 
         # Make the Play button.
         self.play_button = Button(self, "Play", (0, -50))
         self.score_button = Button(self, "High Scores", (0, 50))
+        self.back_button = Button(self, "Main Menu", (0, 50))
 
     def run_game(self):
         """Start the main loop for the game."""
@@ -72,8 +87,9 @@ class AlienInvasion:
                 self.ship.update()
                 self._update_bullets()
                 self._update_aliens()
-
-            self._update_screen()
+                self._update_screen()
+            else:
+                self._draw_main_menu()
 
     def _check_events(self):
         """Respond to keypresses and mouse events."""
@@ -87,12 +103,15 @@ class AlienInvasion:
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
                 self._check_play_button(mouse_pos)
+                self._check_score_button(mouse_pos)
             elif event.type == self._update_frame_event:
                 self._update_frames()
             elif event.type == self._update_explosion_frame_event:
                 self._update_explosion_frames()
             elif event.type == self._alien_shoot_event:
                 self._alien_shoot()
+            elif event.type == self._ufo_summon_event:
+                self._create_ufo()
 
     # Game start function
     def _check_play_button(self, mouse_pos):
@@ -101,6 +120,17 @@ class AlienInvasion:
         if button_clicked and not self.stats.game_active:
             # Reset the game settings.
             self.settings.initialize_dynamic_settings()
+
+            # Make sure all sprites are destroyed if there was a previous game
+            self.bullets.empty()
+            self.bunkers.empty()
+            self.alienbullets.empty()
+            self.aliens.empty()
+            if self.ufo is not None:
+                self.ufo.kill()
+                if self._soundmananger.getinstance().getufosoundactive:
+                    self._soundmananger.getinstance().stopufosound()
+                self.ufo = None
 
             # Reset the game statistics.
             self.stats.reset_stats(self.settings)
@@ -127,6 +157,31 @@ class AlienInvasion:
             # Start background music
             self._soundmananger.getinstance().startgame()
 
+    def _check_score_button(self, mouse_pos):
+        button_clicked = self.score_button.rect.collidepoint(mouse_pos)
+        if button_clicked and not self.stats.game_active:
+            self.screen.fill(self.settings.bg_color)
+            self.screen.blit(self.settings.screenbackground, self.settings.screenbackgroundrect)
+            self.stats.display_scores()
+            self.back_button.rect = self.score_button.rect
+            self.back_button.prep_msg()
+            self.back_button.draw_button()
+            pygame.display.flip()
+
+            while True:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        sys.exit()
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                            pygame.quit()
+                            sys.exit()
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        mouse_pos = pygame.mouse.get_pos()
+                        button_clicked = self.score_button.rect.collidepoint(mouse_pos)
+                        if button_clicked:
+                            return
+
     def _check_keydown_events(self, event):
         """Respond to keypresses."""
         if event.key == pygame.K_RIGHT or event.key == pygame.K_d:
@@ -137,9 +192,6 @@ class AlienInvasion:
             sys.exit()
         elif event.key == pygame.K_SPACE:
             self._fire_bullet()
-        elif event.key == pygame.K_p:
-            self.stats.level += 1
-            self.aliens.empty()
 
     def _check_keyup_events(self, event):
         """Respond to key releases."""
@@ -183,15 +235,35 @@ class AlienInvasion:
         self._check_alienbullet_collisions()
 
     def _check_bullet_alien_collisions(self):
+        """Respond to bullet-UFO collisions."""
+        if self.ufo is not None:
+            collisions = pygame.sprite.spritecollide(self.ufo, self.bullets, False)
+
+            if collisions:
+                self.stats.score += self.ufo.score
+                self.sb.prep_score()
+                self.sb.check_high_score()
+                score_str = "{:,}".format(self.ufo.score)
+                font = pygame.font.SysFont(None, 36)
+                self.ufo_score = font.render(score_str, True, (255, 255, 0), self.settings.bg_color)
+                self.ufo_rect = self.ufo_score.get_rect()
+                self.ufo_rect.center = self.ufo.rect.center
+                self.display_ufo_score = True
+                thread = threading.Thread(target=self._ufo_score_duration, args=[3000], daemon=True)
+                thread.start()
+                self.ufo.kill()
+                if self._soundmananger.getinstance().getufosoundactive():
+                    self._soundmananger.getinstance().stopufosound()
+                self.ufo = None
+
         """Respond to bullet-alien collisions."""
         # Remove any bullets and aliens that have collided.
         collisions = pygame.sprite.groupcollide(self.bullets, self.aliens, True, False)
 
         if collisions:
             for aliens in collisions.values():
-                self.stats.score += self.settings.alien_points * len(aliens)
-
                 for alien in aliens:
+                    self.stats.score += alien.score
                     explosion = AlienExplosion(self, alien)
                     self.explosions.add(explosion)
                     alien.kill()
@@ -205,6 +277,11 @@ class AlienInvasion:
             self.bullets.empty()
             self.bunkers.empty()
             self.alienbullets.empty()
+            if self.ufo is not None:
+                self.ufo.kill()
+                if self._soundmananger.getinstance().getufosoundactive:
+                    self._soundmananger.getinstance().stopufosound()
+                self.ufo = None
             # Create new objects
             self._create_fleet()
             self._create_bunker_wall()
@@ -250,6 +327,9 @@ class AlienInvasion:
         self._check_fleet_edges()
         self.aliens.update()
         self.explosions.update()
+
+        if self.ufo is not None:
+            self.ufo.update()
 
         # Look for alien-ship collisions.
         if pygame.sprite.spritecollideany(self.ship, self.aliens):
@@ -298,8 +378,33 @@ class AlienInvasion:
                     bunker.kill()
                     break
 
+    def _ship_explosion(self):
+        for image in self.ship.explosion_frames:
+            self.ship.setexplosionframe(image)
+            self._update_screen()
+            pygame.time.wait(175)
+
+        self.ship.resetimage()
+        self._update_screen()
+        pygame.time.wait(500)
+
     def _ship_hit(self):
         """Respond to the ship being hit by an alien."""
+        thread = threading.Thread(target=self._ship_explosion, args=(), daemon=True)
+        thread.start()
+
+        # Threading the explosion function to allow exiting of the game
+        # pygame.time.wait() locks the window, preventing exiting
+        while thread.is_alive():
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+
         if self.stats.ships_left > 0:
             # Decrement ships_left, and update scoreboard.
             self.stats.ships_left -= 1
@@ -310,6 +415,11 @@ class AlienInvasion:
             self.bullets.empty()
             self.bunkers.empty()
             self.alienbullets.empty()
+            if self.ufo is not None:
+                self.ufo.kill()
+                if self._soundmananger.getinstance().getufosoundactive:
+                    self._soundmananger.getinstance().stopufosound()
+                self.ufo = None
             
             # Create a new fleet and center the ship.
             self._create_fleet()
@@ -319,15 +429,21 @@ class AlienInvasion:
             
             # Pause.
             sleep(0.5)
+        # Game ending control goes here
         else:
             self.stats.game_active = False
+            if self._soundmananger.getinstance().getmusicplaying():
+                self._soundmananger.getinstance().stopmusic()
             pygame.mouse.set_visible(True)
+
+            if self.stats.checkfornewhighscore():
+                self._check_score_button(self.score_button.rect.center)
 
     def _create_fleet(self):
         """Create the fleet of aliens."""
         # Create an alien and find the number of aliens in a row.
         # Spacing between each alien is equal to one alien width.
-        alien = Alien(self, ['images/alien1frame1.png', 'images/alien1frame2.png'])
+        alien = Alien(self, ['images/alien1frame1.png', 'images/alien1frame2.png'], 0)
         alien_width, alien_height = alien.rect.size
         available_space_x = self.settings.screen_width - (2 * alien_width)
         number_aliens_x = available_space_x // (2 * alien_width)
@@ -352,18 +468,33 @@ class AlienInvasion:
             if row_number % 2 == 0 and row_number is not 0:
                 alienimageindex += 1
             for alien_number in range(number_aliens_x):
-                self._create_alien(alien_number, row_number, alienimages[alienimageindex], alien_number % 2)
+                self._create_alien(alien_number, row_number, alienimages[alienimageindex],
+                                   self.settings.score_values[alienimageindex], alien_number % 2)
 
         self.settings.max_aliens = len(self.aliens)
 
-    def _create_alien(self, alien_number, row_number, images, offset):
+    def _create_alien(self, alien_number, row_number, images, score, offset):
         """Create an alien and place it in the row."""
-        alien = Alien(self, images, offset)
+        alien = Alien(self, images, score, offset)
         alien_width, alien_height = alien.rect.size
         alien.x = alien_width + 2 * alien_width * alien_number
         alien.rect.x = alien.x
         alien.rect.y = alien.rect.height + 1.25 * alien.rect.height * row_number
         self.aliens.add(alien)
+
+    def _create_ufo(self):
+        if not self.stats.game_active:
+            return
+
+        if self.ufo is None and random.randint(0, 5) == 2:
+            self.ufo = UFO(self, int(self.settings.score_values[2] * random.randint(3, 9) / 1.5))
+            self.ufo.rect.y = int(self.settings.screen_height * random.randint(15, 75) / 100)
+            if not self._soundmananger.getinstance().getufosoundactive():
+                self._soundmananger.getinstance().playufosound()
+
+    def _ufo_score_duration(self, duration):
+        pygame.time.wait(duration)
+        self.display_ufo_score = False
 
     def _create_bunker_wall(self):
         """Create the row of bunkers."""
@@ -399,6 +530,13 @@ class AlienInvasion:
                 self._change_fleet_direction()
                 return
 
+        if self.ufo is not None:
+            if self.ufo.check_edges():
+                self.ufo.kill()
+                if self._soundmananger.getinstance().getufosoundactive:
+                    self._soundmananger.getinstance().stopufosound()
+                self.ufo = None
+
     def _change_fleet_direction(self):
         """Drop the entire fleet and change the fleet's direction."""
         # They do drop down
@@ -406,11 +544,25 @@ class AlienInvasion:
             alien.rect.y += self.settings.fleet_drop_speed
         self.settings.fleet_direction *= -1
 
+    def _draw_main_menu(self):
+        self.screen.fill(self.settings.bg_color)
+        self.screen.blit(self.settings.screenbackground, self.settings.screenbackgroundrect)
+        height = self.sb.show_main_menu()
+        self.play_button.rect.bottom = self.play_button.rect.height + height + 75
+        self.score_button.rect.top = self.play_button.rect.bottom + 50
+        self.play_button.prep_msg()
+        self.score_button.prep_msg()
+        self.play_button.draw_button()
+        self.score_button.draw_button()
+        pygame.display.flip()
+
     def _update_screen(self):
         """Update images on the screen, and flip to the new screen."""
         self.screen.fill(self.settings.bg_color)
         self.screen.blit(self.settings.screenbackground, self.settings.screenbackgroundrect)
         self.ship.blitme()
+        if self.ufo is not None:
+            self.ufo.blitme()
         for bullet in self.bullets.sprites():
             bullet.draw_bullet()
 
@@ -427,12 +579,8 @@ class AlienInvasion:
         # Draw the score information.
         self.sb.show_score()
 
-        # Draw the play button if the game is inactive.
-        # Control goes here after a game ends2
-        if not self.stats.game_active:
-            self.stats.writehighscores()
-            self.play_button.draw_button()
-            self.score_button.draw_button()
+        if self.display_ufo_score:
+            self.screen.blit(self.ufo_score, self.ufo_rect)
 
         pygame.display.flip()
 

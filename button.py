@@ -19,13 +19,15 @@ class Button:
         self.rect.center = self.screen_rect.center
         self.rect.x += offset[0]
         self.rect.y += offset[1]
-        
-        # The button message needs to be prepped only once.
-        self._prep_msg(msg)
 
-    def _prep_msg(self, msg):
-        """Turn msg into a rendered image and center text on the button."""
+        self.msg = msg
         self.msg_image = self.font.render(msg, True, self.text_color, self.button_color)
+        self.msg_image_rect = self.msg_image.get_rect()
+        self.msg_image_rect.center = self.rect.center
+
+    def prep_msg(self):
+        """Turn msg into a rendered image and center text on the button."""
+        self.msg_image = self.font.render(self.msg, True, self.text_color, self.button_color)
         self.msg_image_rect = self.msg_image.get_rect()
         self.msg_image_rect.center = self.rect.center
 
